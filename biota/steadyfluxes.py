@@ -107,7 +107,7 @@ class Bioreactor:
         """
         Parameters
         ----------
-        wv : float
+        wv : float        
             working volume of the bioreactor, in litres
         t : float
             Bioreactor diameter, assumes circular cross section, metres
@@ -157,19 +157,19 @@ class Bioreactor:
         self.mf_O2_gas = 0.2 #mole fraction of oxygen in sparged gas[-]
         self.v0 = v0         #initial volume of media and cells [litres]
         self.ns = ns         #starting number of cells [1/mlitre]
-        self.Temp = Temp   #operating temp [K]
+        self.Temp = Temp     #operating temp [K]
         self.Np = Np         #impeller power number [-]
         self.rho = rho       #medium density [kg/m3]
         self.mu = mu         #medium dynamic viscosity [Pa.s]
-        self.vvd = vvd       #vessel volumes per day perfusion rate [1/day]
-        self.perfAMM         #concentration removal of ammonia through perfusion [mmol/L] 
-        self.perfLAC         #concentration removal of lactate through perfusion [mmol/L]
+        self.vvd = vvd       #vessel volumes per day perfusion rate [1/day]        
+        self.perfAMM = perfAMM          #concentration removal of ammonia through perfusion [mmol/L] 
+        self.perfLAC = perfLAC          #concentration removal of lactate through perfusion [mmol/L]
         
-        self.tipSpeed = 2*math.pi*(self.d/2)*self.n/60              #calcs tipspeed [m/s]
+        self.tipSpeed = 2*math.pi*(self.d/2)*self.n/60              
 
-        self.power = 2*self.Np*(self.n/60)**3*self.rho*self.d**5    #calcs impeller power [W] check units
+        self.power = 2*self.Np*(self.n/60)**3*self.rho*self.d**5    
 
-        self.tau = 6 * self.t**(2/3) * \                            #calcs mixing time [secs]
+        self.tau = 6 * self.t**(2/3) * \
             (self.power/(self.wv/1000*self.rho))**(-1/3) * \
             (self.d/self.t)**(-1/3) * \
             (self.wv/1000/(math.pi*(self.t/2)**2)/self.t)**2.5
@@ -295,28 +295,26 @@ class Cell:
 def prodPerf(b,c,duration):
     """
     Production performance function to predict overall yield and yield limits by constraint type.
-    Uses array broadcasting to evaluate time dependant behaviour in a single step, based on assumption of steady fluxes
+    Uses array broadcasting to evaluate time dependant behaviour in a single step, based on assumption of steady fluxes.
+    Models and assumptions are as described in the publication of Humbird https://doi.org/10.31224/osf.io/795su 
 
     Parameters
     ----------
     b : Class
-        Bioreactor Class.
+        Bioreactor class instance
     c : Class
-        Cell class.
+        Cell class instance
     duration : int
         Duration for which to assess performance, in hours.
 
     Returns
     -------
-    dataframe : TYPE
-        DESCRIPTION.
-    limitsList : TYPE
-        DESCRIPTION.
-    constraintsAtLimit : TYPE
-        DESCRIPTION.
-    constrainer : TYPE
-        DESCRIPTION.
-
+    dataframe : dataframe
+        Time history of all performance and constraint values.
+    limitsDescriptList : list of strings
+        Names of constraints index linked to limitsList
+    limitsList : list of tuples
+        Time and cell wet mass limits for each constraint
     """
     
     #make time array for duration [hrs]
@@ -337,7 +335,7 @@ def prodPerf(b,c,duration):
     volFrac = vol_cells/(V_t)
     
     #media height
-    mH = (V_t/1000)/(math.pi*(b.t/2)**2)
+    mH = (V_t/1000)/(math.pi*(b.t/2)**2) #[metres]
     
     #pressure at bottom [bar]
     p_bottom = (b.rho * 9.81 * mH)/1e5 + b.p_back
@@ -357,14 +355,11 @@ def prodPerf(b,c,duration):
 
     #concentrations of co2, ammonia and lactate
     CO2=c.PRODCO2/c.mu*N0*(np.exp(c.mu*t)-1)*c.wetmass*1e-12*c.dmf/V_t #[mmol/L]
-    AMM=c.PRODamm/c.mu*N0*(np.exp(c.mu*t)-1)*c.wetmass*1e-12*c.dmf/V_t - max(0,t*b.vvd*b.wv*b.perfAMM/24) #[mmol/L]
-    LAC=c.PRODlac/c.mu*N0*(np.exp(c.mu*t)-1)*c.wetmass*1e-12*c.dmf/V_t - max(0,t*b.vvd*b.wv*b.perfLAC/24) #[mmol/L]
-    
-    
+    AMM=c.PRODamm/c.mu*N0*(np.exp(c.mu*t)-1)*c.wetmass*1e-12*c.dmf/V_t - t*b.vvd*b.wv*b.perfAMM/24 #[mmol/L]
+    LAC=c.PRODlac/c.mu*N0*(np.exp(c.mu*t)-1)*c.wetmass*1e-12*c.dmf/V_t - t*b.vvd*b.wv*b.perfLAC/24 #[mmol/L]
     
     #gas in flowrate in [kmol/hr]
-    gas_in = 3600*(b.u_s*math.pi*(b.t/2)**2*p_bottom*1e5)  / (8.314 * b.Tferm) / 1000 #[kmol/hr]
-    
+    gas_in = 3600*(b.u_s*math.pi*(b.t/2)**2*p_bottom*1e5)  / (8.314 * b.Temp) / 1000 #[kmol/hr]
     
     #rate of gaseous output into headspace
     N2_out = gas_in * (1 - b.mf_O2_gas)   #[kmol/hr]
@@ -373,7 +368,7 @@ def prodPerf(b,c,duration):
     H2O_out = H2O_vapP/b.p_back*(N2_out+O2_out+CO2_out)/(1-H2O_vapP/b.p_back) #[kmol/hr]
 
     #total gas out rate into headspace in m3/s
-    gas_out = ((N2_out+O2_out+CO2_out+H2O_out)*1000)*8.314*b.Tferm/(b.p_back*1e5)/3600
+    gas_out = ((N2_out+O2_out+CO2_out+H2O_out)*1000)*8.314*b.Temp/(b.p_back*1e5)/3600
     u_s_top = gas_out/(math.pi*(b.t/2)**2)
     
     
@@ -390,20 +385,23 @@ def prodPerf(b,c,duration):
     DO_t = b.mf_O2_gas * H_O2 * mw_O2 * 0.2    #check physics on this one
     DO_b = DO_t * p_bottom / b.p_back
     
+    #log mean squared concentration difference
     if ((Csat_b - DO_b)/(Csat_t - DO_t)).min() < 0:
         DeltaC_lmd = 0.0001
     else:
         DeltaC_lmd = ((Csat_b - DO_b) - (Csat_t - DO_t))/np.log((Csat_b - DO_b)/(Csat_t - DO_t))
     
+    #required kla to meet oxygen uptake rate
     kla_needed = O2_UR / DeltaC_lmd
     
+    #Kolmogorov eddy disspitaion length scale from dissipated energy
     eps = b.power/(V_t/1000)/b.rho
     epsMax = 50*eps
     lambdaK = ((b.mu/b.rho)**3/epsMax)**0.25
     
-    #findLimits
-    indexLAC = min(LAC[LAC<c.limits[0]].shape[0],LAC.shape[-1]-1)    
-    indexAMM = min(AMM[AMM<c.limits[1]].shape[0],AMM.shape[-1]-1)
+    #find limits for each constraint
+    indexAMM = min(AMM[AMM<c.limits[0]].shape[0],AMM.shape[-1]-1)
+    indexLAC = min(LAC[LAC<c.limits[1]].shape[0],LAC.shape[-1]-1)    
     indexpCO2 = min(pCO2[pCO2<c.limits[2]].shape[0],pCO2.shape[-1]-1)
     
     klaRatio = kla_needed/kla_theory
@@ -414,13 +412,12 @@ def prodPerf(b,c,duration):
     
     indexvolfrac = min(volFrac[volFrac<0.25].shape[0],volFrac.shape[-1]-1)
     indexlambdaK = min(lambdaK[lambdaK>=c.limits[3]].shape[0],lambdaK.shape[-1]-1)
-                       
     indexustop = min(u_s_top[u_s_top<=0.006].shape[0],u_s_top.shape[-1]-1)
-    
     indexvolume = min(V_t[V_t<=0.8*b.wv].shape[0],V_t.shape[-1]-1)
     
-    limitsLAC = (t[indexLAC],gDW[indexLAC]/c.dmf/V_t[indexLAC])
+    #report time and yield for each constraint limit
     limitsAMM = (t[indexAMM],gDW[indexAMM]/c.dmf/V_t[indexAMM])
+    limitsLAC = (t[indexLAC],gDW[indexLAC]/c.dmf/V_t[indexLAC])
     limitspCO2 = (t[indexpCO2],gDW[indexpCO2]/c.dmf/V_t[indexpCO2])
     limitskla = (t[indexkla],gDW[indexkla]/c.dmf/V_t[indexkla])
     limitsmixing = (t[indexmixing],gDW[indexmixing]/c.dmf/V_t[indexmixing])
@@ -429,23 +426,24 @@ def prodPerf(b,c,duration):
     limitsustop = (t[indexustop],gDW[indexustop]/c.dmf/V_t[indexustop])
     limitsvolume = (t[indexvolume],gDW[indexvolume]/c.dmf/V_t[indexvolume])
     
-    limitsList = [limitsLAC, limitsAMM, limitspCO2, limitskla, limitsmixing, limitsvolfrac, limitslambdaK, limitsustop, limitsvolume]
-    
-    tlimitArray = np.array((indexLAC,indexAMM,indexpCO2,indexkla,indexmixing,indexvolfrac,indexlambdaK,indexustop,indexvolume))
-    constrainer = np.argmin(tlimitArray)
-    
-    tlimitindex=min(indexLAC,indexAMM,indexpCO2,indexkla,indexmixing,indexvolfrac,indexlambdaK,indexustop,indexvolume)
-    
-    constraintsAtLimit=[t[tlimitindex],gDW[tlimitindex]/c.dmf/V_t[tlimitindex],LAC[tlimitindex],AMM[tlimitindex],pCO2[tlimitindex],\
-                        klaRatio[tlimitindex],mixing[tlimitindex],volFrac[tlimitindex],lambdaK[tlimitindex],u_s_top[tlimitindex],V_t[tlimitindex]]
-    
+    #constract dataframe with relevant constraints and parameters over time
     dataframe = pd.DataFrame({'Time [hr]': t, 'Volume [L]': V_t, 'Mixing Time [s]': tau_mix, 'Required kLa [1/s]': kla_needed \
                              , 'Theoretical kLa [1/s]': kla_theory, 'Required/Theoretical kLa [-]': kla_needed/kla_theory \
-                             , 'Required kLa * Mixing Time [-]': kla_needed*tau_mix, 'pCO2 [mbar]': pCO2, 'NH4 [mmol/L]': AMM \
+                             , 'Required kLa * Mixing Time [-]': kla_needed*tau_mix, 'pCO2 [mbar]': pCO2, 'Ammonia [mmol/L]': AMM \
                              , 'Lactate [mmol/L]': LAC, 'Volume Fraction [-]': volFrac, 'lambda_k [m]': lambdaK \
                               , 'Superficial Gas Top [m/s]': u_s_top, 'Cell Density [wet g/L]': gDW/c.dmf/V_t})
     
-    return (dataframe,limitsList,constraintsAtLimit,constrainer)
+    #construct list of constraining parameters and list of time and yield limits of each 
+    limitsDescriptList = ['ammonia', 'lactate', 'CO2', 'kla', 'mixing', 'volume fraction', 'hydrodynamic stress', 'superficial velocity', 'volume']
+    limitsList = [limitsAMM, limitsLAC, limitspCO2, limitskla, limitsmixing, limitsvolfrac, limitslambdaK, limitsustop, limitsvolume]
+    
+    #construct a dictionary of parameters at the limited production time. Unused at present, left in for reference 
+    tlimitindex=min(indexLAC,indexAMM,indexpCO2,indexkla,indexmixing,indexvolfrac,indexlambdaK,indexustop,indexvolume)
+    paramsAtLimit={'Time':t[tlimitindex],'Cell Mass':gDW[tlimitindex]/c.dmf/V_t[tlimitindex],'Lactate':LAC[tlimitindex],'Ammonia':AMM[tlimitindex],'CO2':pCO2[tlimitindex],\
+                        'kla ratio':klaRatio[tlimitindex],'mixing':mixing[tlimitindex],'volume fraction':volFrac[tlimitindex],'hydro stress':lambdaK[tlimitindex],\
+                            'superficial velocity':u_s_top[tlimitindex],'volume':V_t[tlimitindex]}
+    
+    return (dataframe,limitsDescriptList,limitsList)
 
 
 
@@ -483,33 +481,35 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
     #calc times from doublings
     time1 = dbls * math.log(2)/c.mu
     
-    #sweep rpms and superficial gas vels
+    #sweep rpm, superficial gas velocity and starting cell density
+    
+    #make arrays for each
     rpms = np.linspace(rpmlims[0],rpmlims[1],count)
     supers = np.linspace(uslims[0],uslims[1],count)
     dens = np.linspace(nslims[0],nslims[1],count)
+    
+    #make 3D and 2D mesh grids to store date
     rr, ss, dd = np.meshgrid(rpms, supers, dens, indexing='ij')
     rm, sm = np.meshgrid(rpms, supers, indexing='ij')
-
-    t1,t2 = np.meshgrid(rpms,supers,indexing='ij')
-    t3,t4 = np.meshgrid(rpms,dens,indexing='ij')
     
-    overallYieldMAX = t1*0
-    overallDurationMAX = t1*0
-    nsMAX = t1*0
-    lactateYieldMAX = t1*0
-    ammoniaYieldMAX = t1*0
-    pCO2YieldMAX = t1*0
-    klaYieldMAX = t1*0
-    mixingYieldMAX = t1*0
-    volFracYieldMAX = t1*0
-    lambdaKYieldMAX = t1*0
-    ustopYieldMAX = t1*0
-    volumeYieldMAX = t1*1e-6
+    
+    overallYieldMAX = rm*0
+    overallDurationMAX = rm*0
+    nsMAX = rm*0
+    lactateYieldMAX = rm*0
+    ammoniaYieldMAX = rm*0
+    pCO2YieldMAX = rm*0
+    klaYieldMAX = rm*0
+    mixingYieldMAX = rm*0
+    volFracYieldMAX = rm*0
+    lambdaKYieldMAX = rm*0
+    ustopYieldMAX = rm*0
+    volumeYieldMAX = rm*1e-6
     
     
     #dummy grids for data
-    lactateYield = ss*0
     ammoniaYield = ss*0
+    lactateYield = ss*0
     pCO2Yield = ss*0
     klaYield = ss*0
     mixingYield = ss*0
@@ -530,21 +530,21 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
                 b.calctipSpeed()
                 b.calcpower()
                 b.calctau()
-                (o,p,q,r) = prodPerf(b,c,time1)
+                (o,p,q) = prodPerf(b,c,time1)
             
-                #if (q[0]>time1):
-                overallYield[i,j,k] = min(p[0][1],p[1][1],p[2][1],p[3][1],p[4][1],p[5][1],p[6][1],p[7][1],p[8][1])
-                overallDuration[i,j,k] = min(p[0][0],p[1][0],p[2][0],p[3][0],p[4][0],p[5][0],p[6][0],p[7][0],p[8][0])
+                
+                overallYield[i,j,k] = min(q[0][1],q[1][1],q[2][1],q[3][1],q[4][1],q[5][1],q[6][1],q[7][1],q[8][1])
+                overallDuration[i,j,k] = min(q[0][0],q[1][0],q[2][0],q[3][0],q[4][0],q[5][0],q[6][0],q[7][0],q[8][0])
 
-                lactateYield[i,j,k] = p[0][1]
-                ammoniaYield[i,j,k] = p[1][1]
-                pCO2Yield[i,j,k] = p[2][1]
-                klaYield[i,j,k] = p[3][1]
-                mixingYield[i,j,k] = p[4][1]
-                volFracYield[i,j,k] = p[5][1]
-                lambdaKYield[i,j,k] = p[6][1]
-                ustopYield[i,j,k] = p[7][1]
-                volumeYield[i,j,k] = p[8][1]
+                ammoniaYield[i,j,k] = q[0][1]
+                lactateYield[i,j,k] = q[1][1]
+                pCO2Yield[i,j,k] = q[2][1]
+                klaYield[i,j,k] = q[3][1]
+                mixingYield[i,j,k] = q[4][1]
+                volFracYield[i,j,k] = q[5][1]
+                lambdaKYield[i,j,k] = q[6][1]
+                ustopYield[i,j,k] = q[7][1]
+                volumeYield[i,j,k] = q[8][1]
 
                 #else:
                 #    overallYield[i,j,k]= 0
@@ -596,78 +596,69 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
         plt.contourf(rm, sm, overallYieldMAX,levels=np.linspace(overallYieldMAX.min(),overallYieldMAX.max(),10))
         plt.colorbar()
         plt.title('Overall Yield [g/L wet]')
+        plt.xlabel("Agitation [RPM]")
         plt.ylabel("Aeration Superficial Velocity [m/s]")
 
         plt.subplot(4,3,2)
         plt.contourf(rm, sm, overallDurationMAX,levels=np.linspace(0.99*overallDurationMAX.min(),1.01*overallDurationMAX.max(),10))
         plt.colorbar()
         plt.title('Duration [hrs]')
+        plt.xlabel("Agitation [RPM]")
+        plt.ylabel("Aeration Superficial Velocity [m/s]")
+
 
         plt.subplot(4,3,3)
         plt.contourf(rm, sm, nsMAX,levels=np.linspace(0.99*nsMAX.min(),1.01*nsMAX.max(),10))
         plt.colorbar()
         plt.title('Starting Cell Density [1/mL]')
-
-        plt.subplot(4,3,4)
-        plt.contourf(rm, sm, lactateYieldMAX,levels=np.linspace(0.99*lactateYieldMAX.min(),1.01*lactateYieldMAX.max(),10))
-        plt.colorbar()
-        plt.title('Lactate Limited Yield [g/L wet]')
+        plt.xlabel("Agitation [RPM]")
         plt.ylabel("Aeration Superficial Velocity [m/s]")
 
-        plt.subplot(4,3,5)
-        plt.contourf(rm, sm, ammoniaYieldMAX,levels=np.linspace(0.99*ammoniaYieldMAX.min(),1.01*ammoniaYieldMAX.max(),10))
-        plt.colorbar()
-        plt.title('Ammonia Limited Yield [g/L wet]')
-
-        plt.subplot(4,3,6)
-        plt.contourf(rm, sm, pCO2YieldMAX,levels=np.linspace(0.99*pCO2YieldMAX.min(),1.01*pCO2YieldMAX.max(),10))
-        plt.colorbar()
-        plt.title('CO2 Limited Yield [g/L wet]')
-
-        plt.subplot(4,3,7)
+        plt.subplot(4,3,4)
         plt.contourf(rm, sm, klaYieldMAX,levels=np.linspace(0.99*klaYieldMAX.min(),1.01*klaYieldMAX.max(),10))
         plt.colorbar()
         plt.title('Oxygen Mass Transfer\n Limited Yield [g/L wet]')
+        plt.xlabel("Agitation [RPM]")
+        plt.ylabel("Aeration Superficial Velocity [m/s]")
 
+        plt.subplot(4,3,5)
+        plt.contourf(rm, sm, lambdaKYieldMAX,levels=np.linspace(0.99*lambdaKYieldMAX.min(),1.01*lambdaKYieldMAX.max(),10))
+        plt.colorbar()
+        plt.title('Cell Stress\n Limited Yield [g/L wet]')
+        plt.xlabel("Agitation [RPM]")
+        plt.ylabel("Aeration Superficial Velocity [m/s]")
+        
+        plt.subplot(4,3,6)
+        plt.contourf(rm, sm, ustopYieldMAX,levels=np.linspace(0.99*ustopYieldMAX.min(),1.01*ustopYieldMAX.max(),10))
+        plt.colorbar()
+        plt.title('Superficial Velocity Top \nLimited Yield [g/L wet]')
+        plt.xlabel("Agitation [RPM]")
+        plt.ylabel("Aeration Superficial Velocity [m/s]")
+        
+        plt.subplot(4,3,7)
+        plt.contourf(rm, sm, pCO2YieldMAX,levels=np.linspace(0.99*pCO2YieldMAX.min(),1.01*pCO2YieldMAX.max(),10))
+        plt.colorbar()
+        plt.title('CO2 Limited Yield [g/L wet]')
+        plt.xlabel("Agitation [RPM]")
         plt.ylabel("Aeration Superficial Velocity [m/s]")
 
         plt.subplot(4,3,8)
         plt.contourf(rm, sm, mixingYieldMAX,levels=np.linspace(0.99*mixingYieldMAX.min(),1.01*mixingYieldMAX.max(),10))
         plt.colorbar()
         plt.title('Mixing Limited Yield [g/L wet]')
-
-
-        plt.subplot(4,3,9)
-        plt.contourf(rm, sm, volFracYieldMAX,levels=np.linspace(0.99*volFracYieldMAX.min(),1.01*volFracYieldMAX.max(),10))
-        plt.colorbar()
-        plt.title('Volume Fraction\n Limited Yield [g/L wet]')
-
-
-        plt.subplot(4,3,10)
-        plt.contourf(rm, sm, lambdaKYieldMAX,levels=np.linspace(0.99*lambdaKYieldMAX.min(),1.01*lambdaKYieldMAX.max(),10))
-        plt.colorbar()
-        plt.title('Cell Stress\n Limited Yield [g/L wet]')
         plt.xlabel("Agitation [RPM]")
         plt.ylabel("Aeration Superficial Velocity [m/s]")
 
-        plt.subplot(4,3,11)
-        plt.contourf(rm, sm, ustopYieldMAX,levels=np.linspace(0.99*ustopYieldMAX.min(),1.01*ustopYieldMAX.max(),10))
-        plt.colorbar()
-        plt.title('Superficial Velocity Top \nLimited Yield [g/L wet]')
-        plt.xlabel("Agitation [RPM]")
-
-        plt.subplot(4,3,12)
-        plt.contourf(rm, sm, volumeYieldMAX,levels=np.linspace(0.99*volumeYieldMAX.min(),1.01*volumeYieldMAX.max(),10))
-        plt.colorbar()
-        plt.title('Bioreactor Capacity\n Limited Yield [g/L wet]')
-        plt.xlabel("Agitation [RPM]")
-
         plt.tight_layout()
-        plt.savefig('yieldExample.png')
+        plt.savefig('ConstraintYieldGraphs.png')
         plt.show()
 
-    return ([overallYieldMAX.max(),lactateYieldMAX.max(),ammoniaYieldMAX.max(),pCO2YieldMAX.max(),\
-            klaYieldMAX.max(),mixingYieldMAX.max(),volFracYieldMAX.max(),lambdaKYieldMAX.max(),\
-            ustopYieldMAX.max(),volumeYieldMAX.max(),]) #make this a dataframe
-        
+    dataframe = pd.DataFrame({'Constraint': ['overall','ammonia','lactate','CO2','kla','mixing','volume fraction','hydrodynamic stress','superficial velocity','volume'],\
+                              'Maximum Yield [g/L wet]':[overallYieldMAX.max(),ammoniaYieldMAX.max(),lactateYieldMAX.max(),pCO2YieldMAX.max(),klaYieldMAX.max(),\
+                                mixingYieldMAX.max(),volFracYieldMAX.max(),lambdaKYieldMAX.max(),ustopYieldMAX.max(),volumeYieldMAX.max()]})
+    
+    #return ([overallYieldMAX.max(),lactateYieldMAX.max(),ammoniaYieldMAX.max(),pCO2YieldMAX.max(),\
+    #        klaYieldMAX.max(),mixingYieldMAX.max(),volFracYieldMAX.max(),lambdaKYieldMAX.max(),\
+    #        ustopYieldMAX.max(),volumeYieldMAX.max(),]) #make this a dataframe
+    return (dataframe)    
 ###############
