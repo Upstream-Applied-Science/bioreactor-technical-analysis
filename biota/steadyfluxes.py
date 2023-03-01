@@ -3,7 +3,7 @@ This module provides performance modelling and yield prediction funcionality
 primarily for cultivated meat technical analaysis, but can easily be adapted 
 for other cellular agriculture applications
 
-Usage: import biotechan
+Usage: import biota.steadystate
 """
 
 import numpy as np
