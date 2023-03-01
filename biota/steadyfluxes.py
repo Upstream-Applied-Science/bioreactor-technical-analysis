@@ -314,7 +314,7 @@ def prodPerf(b,c,duration):
     limitsDescriptList : list of strings
         Names of constraints index linked to limitsList
     limitsList : list of tuples
-        Time and cell wet mass limits for each constraint
+        Time and cell wet mass yield limits for each constraint
     """
     
     #make time array for duration [hrs]
@@ -449,32 +449,34 @@ def prodPerf(b,c,duration):
 
 def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
     """
-    Brute force parameter sweep on rpm, u_s and n_s. Works reasonably well for counts <=30 after which the time increases.
-    Further work to assess Jumba or similar modules to parallelize in future.
+    Brute force parameter sweep on impeller rpm, superficial sparge velcoity u_s and initial cell number n_s. 
+    Works reasonably well for counts <=30 after which the computation time increases.
+    Care shoudl be taken with the initial cell number range, as high values that don;t grow may still report a high yield.
+    Further work needed to assess Jumba or similar modules to parallelize in future.
 
     Parameters
     ----------
-    count : TYPE
-        DESCRIPTION.
-    b : TYPE
-        DESCRIPTION.
-    c : TYPE
-        DESCRIPTION.
-    dbls : TYPE
-        DESCRIPTION.
-    rpmlims : TYPE
-        DESCRIPTION.
-    uslims : TYPE
-        DESCRIPTION.
-    nslims : TYPE
-        DESCRIPTION.
+    count : integer
+        The number of values to consider for rpm, u_s and n_s.
+    b : Bioreactor class instance
+        Bioreactor class instance.
+    c : Cell class instance
+        Cell class instance.
+    dbls : float
+        Number of cell doublings to consider.
+    rpmlims : tuple of floats
+        Upper and lower limits of the rpm range.
+    uslims : tuple of floats
+        Upper and lower limits of the u_s range.
+    nslims : tuple of floats
+        Upper and lower limits of the ns range.
     graphs : Boolean
-        DESCRIPTION.
+        Whether to generate graphs or not.
 
     Returns
     -------
-    list
-        DESCRIPTION.
+    dataframe
+        Dataframe of the overall and per constraint maximum yield.
 
     """
 
@@ -492,7 +494,7 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
     rr, ss, dd = np.meshgrid(rpms, supers, dens, indexing='ij')
     rm, sm = np.meshgrid(rpms, supers, indexing='ij')
     
-    
+    #max yields over all n_s values - initialise to zero valued meshgrids
     overallYieldMAX = rm*0
     overallDurationMAX = rm*0
     nsMAX = rm*0
@@ -506,8 +508,7 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
     ustopYieldMAX = rm*0
     volumeYieldMAX = rm*1e-6
     
-    
-    #dummy grids for data
+    #yields over all rpm/u_s/n_s combinations - initialise to zero valued meshgrids
     ammoniaYield = ss*0
     lactateYield = ss*0
     pCO2Yield = ss*0
@@ -520,6 +521,7 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
     overallYield = ss*0
     overallDuration = ss*0
 
+    #loop through each combination of rpm/u_s/n_s
     for i in range(count):
         for j in range(count):
             for k in range(count):
@@ -532,10 +534,11 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
                 b.calctau()
                 (o,p,q) = prodPerf(b,c,time1)
             
-                
+                #determine overall yield and duration
                 overallYield[i,j,k] = min(q[0][1],q[1][1],q[2][1],q[3][1],q[4][1],q[5][1],q[6][1],q[7][1],q[8][1])
                 overallDuration[i,j,k] = min(q[0][0],q[1][0],q[2][0],q[3][0],q[4][0],q[5][0],q[6][0],q[7][0],q[8][0])
 
+                #determine specific yields
                 ammoniaYield[i,j,k] = q[0][1]
                 lactateYield[i,j,k] = q[1][1]
                 pCO2Yield[i,j,k] = q[2][1]
@@ -546,14 +549,7 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
                 ustopYield[i,j,k] = q[7][1]
                 volumeYield[i,j,k] = q[8][1]
 
-                #else:
-                #    overallYield[i,j,k]= 0
-                #    overallDuration[i,j,k]=0
-
-    
-    #for i in range(count):
-    #    for j in range(count):
-    #        for k in range(count):
+                #determine max yields per constraint over all n_s values
                 if (overallYield[i,j,k]>overallYieldMAX[i,j]):
                     overallYieldMAX[i,j]=overallYield[i,j,k]
                     overallDurationMAX[i,j]=overallDuration[i,j,k]
@@ -653,6 +649,7 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
         plt.savefig('ConstraintYieldGraphs.png')
         plt.show()
 
+    #construct dataframe to provide overall and per constraint maximum yields
     dataframe = pd.DataFrame({'Constraint': ['overall','ammonia','lactate','CO2','kla','mixing','volume fraction','hydrodynamic stress','superficial velocity','volume'],\
                               'Maximum Yield [g/L wet]':[overallYieldMAX.max(),ammoniaYieldMAX.max(),lactateYieldMAX.max(),pCO2YieldMAX.max(),klaYieldMAX.max(),\
                                 mixingYieldMAX.max(),volFracYieldMAX.max(),lambdaKYieldMAX.max(),ustopYieldMAX.max(),volumeYieldMAX.max()]})
