@@ -8,6 +8,6 @@ This work has been funded by the Good Food Institute (https.gfi.org) through the
 
 ## Release History
 
-v0.1.0 Initial release 
+### v0.1.0 Initial release 
 Uses existing published modelling approaches for biorector performance and cell metabolism.
 Examples for basic use of yield prediction and brute force optimisation. 
