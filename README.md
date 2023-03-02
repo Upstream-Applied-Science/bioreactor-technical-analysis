@@ -4,7 +4,7 @@ The motivation is to build on existing approaches by extending the modelling com
 to couple with detailed computational fluid dynamic models. The goal is to provide an openly accessibel workflow that facilites yield 
 prediction and bioreactor performance and cell metabolism based optimisation.
 
-This work has been funded by the Good Food Institute (https.gfi.org) through the 2022 RFP.
+This work has been funded by the Good Food Institute (https.gfi.org) through their 2022 RFP.
 
 ## Release History
 
