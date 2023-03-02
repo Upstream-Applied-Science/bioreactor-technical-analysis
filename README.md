@@ -6,6 +6,9 @@ prediction and bioreactor performance and cell metabolism based optimisation.
 
 This work has been funded by the Good Food Institute (https.gfi.org) through their 2022 RFP.
 
+## Usage
+Clone to a working directory or to a location in your python path. Future releases may be provided as pip packages.
+
 ## Release History
 
 ### v0.1.0 Initial release 
