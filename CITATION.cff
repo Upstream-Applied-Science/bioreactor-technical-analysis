@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Hubbard"
+  given-names: "Simon"
+  orcid: "https://orcid.org/0009-0009-5030-1112"
+title: "BioTA - Bioreactor Technical Analysis"
+version: 1.0
+date-released: 2023-02
+url: "https://github.com/Upstream-Applied-Science/bioreactor-technical-analysis"
