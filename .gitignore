@@ -1,2 +1,7 @@
 .ipynb_checkpoints
 biota/__pycache__
+template*
+private*
+paper*
+testing*
+__pycache__
