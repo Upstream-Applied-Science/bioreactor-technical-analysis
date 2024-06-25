@@ -158,11 +158,13 @@ def TEACFD(parameterization):
 
     Parameters
     ----------
-    parameterization : List of Dictionaries from Ax
+    parameterization : List of Dictionaries 
+        Input parameters from Ax
 
     Returns
     -------
-    Dictionary with predicted yield in Ax format
+    result : dictionary
+        Predicted yield in Ax format
     """
     
     # Local variables for input parameters

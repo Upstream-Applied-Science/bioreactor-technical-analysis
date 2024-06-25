@@ -695,10 +695,7 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
                 
     
     if graphs:
-        #remove nasty bit from duration
         
-
-
         plt.figure(figsize=(12,8))
         plt.subplot(2,3,1)
         plt.contourf(rm, sm, overallYield)
@@ -706,9 +703,6 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
         plt.title('Overall Yield [g/L wet]')
         plt.xlabel("Agitation [RPM]")
         plt.ylabel("Aeration Superficial Velocity [m/s]")
-
-        
-        
 
         plt.subplot(2,3,2)
         plt.contourf(rm, sm, ammoniaYield)
@@ -747,7 +741,6 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
         plt.ylabel("Aeration Superficial Velocity [m/s]")
 
         plt.tight_layout()
-        #plt.savefig('ConstraintYieldGraphs.png')
         plt.show()
 
     #construct dataframe to provide overall and per constraint maximum yields

@@ -142,12 +142,15 @@ def TEACFD(parameterization):
 
     Parameters
     ----------
-    parameterization : List of Dictionaries from Ax
+    parameterization : List of Dictionaries 
+        Input parameters from Ax
 
     Returns
     -------
-    Dictionary with predicted yield in Ax format
+    result : dictionary
+        Predicted yield in Ax format
     """
+
     # Local variables for input parameters
     rpm=parameterization['RPM']
     Q=parameterization['Gas Flow Rate']
@@ -225,11 +228,9 @@ best_parameters, values, experiment, model = optimize(
     parameters=[
         {
             "name": "RPM", 
-
-            
             "type": "range", 
             "bounds": [20.0, 120.0],
-            #"bounds": [40.0, 160.0],
+            #"bounds": [40.0, 160.0], 
 
             "value_type": "float",
         },
@@ -256,8 +257,7 @@ best_parameters, values, experiment, model = optimize(
         },
     ],
     experiment_name="test",
-    evaluation_function=TEACFD,
-    #outcome_constraints=["CO2 >= -10.0","Mixing >= -10.0"],  
+    evaluation_function=TEACFD, 
     objective_name="yield",
     total_trials=30,
 )
