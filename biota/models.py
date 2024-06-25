@@ -282,15 +282,30 @@ class Cell:
 
 ## FUNCTIONS ##
 
-#simplified yield evaluation function using first order ODEs for oxygen and carbon dioxide
-#currently only considers oxygen & carbon dioxide
+# Yield prediction method using coupled ODE's
 def bioreactorODEs(b,c,duration,klaInO2,klaInCO2):
     """
-    comments to go here
+    Predicts yield based on dissolved oxygen and carbon dioxide concentrations which are solved over time
+    through the use of SciPy's odeInt function to solve coupled ordinary differential equations for both species
     
     Parameters
     ----------
+    b : Class
+        Bioreactor class instance
+    c : Class
+        Cell class instance
+    klaInO2 : float
+        Oxygen mass transfer coefficient
+    klaInCO2 : float
+        Carbon dioxide mass transfer coefficient
 
+    Returns
+    -------
+    dataframe : dataframe
+        Time history of all performance and constraint values.
+    limitsDict : dictionary
+        Yield limits by constraint
+    
     """
 
     #array length
@@ -307,54 +322,77 @@ def bioreactorODEs(b,c,duration,klaInO2,klaInCO2):
     gDW=N*c.wetmass*1e-12*c.dmf #[grams]
     
     #functions for change in dissolved gas concentrations
-    def do2dt(y,t):
-        dydt = klaInO2*(2.78e-4 - y)*3600 - c.UPO2*b.ns*math.exp(c.mu*t)*c.wetmass*c.dmf*1e-12
-        return dydt
+    def do2dt(y,t): #Oxygen
+        (Cg,C) = y
+        dCgdt = -(H_O2d*Cg - C)*klaInO2*3600 + Q*(C_O2_in - Cg)/V        
+        dCdt = klaInO2*(H_O2d*Cg - C)*3600 - c.UPO2*b.ns*math.exp(c.mu*t)*c.wetmass*c.dmf*1e-12
+        return [dCgdt,dCdt]
 
-    def dco2dt(y,t):
-        dydt = klaInCO2*(1.377e-5 - y)*3600 + c.PRODCO2*b.ns*math.exp(c.mu*t)*c.wetmass*c.dmf*1e-12
-        return dydt
+    def dco2dt(y,t): #Carbon dioxide
+        (Cg,C) = y
+        dCgdt = -(H_CO2d*Cg - C)*klaInCO2*3600 + Q*(C_CO2_in - Cg)/V
+        dCdt = klaInCO2*(H_CO2d*Cg - C)*3600 + c.PRODCO2*b.ns*math.exp(c.mu*t)*c.wetmass*c.dmf*1e-12
+        return [dCgdt,dCdt]
+    
+    #dolve coupled ODEs for oxygen and carbon dioxide concentrations
+    solnO2 = odeint(do2dt, [0.0087,1e-6], t)
+    solnCO2 = odeint(dco2dt,[1.66e-5,1e-6] , t)
 
-    concO2 = odeint(do2dt, 1e-6, t)
-    concCO2 = odeint(dco2dt, 1e-6, t)
+    #Extract concentrations with time and plot. Used for testing, commented out for production use.
+    # concO2g = solnO2[:,0]
+    # concO2l = solnO2[:,1]
+    # concCO2g = solnCO2[:,0]
+    # concCO2l = solnCO2[:,1]
+    
+    # plt.figure(figsize=(10,6))
+    # plt.plot(t,concO2l)
+    # plt.legend()
+    # plt.grid()
+    # plt.xlabel('Time [hrs]')
+    # plt.ylabel('Liquid O2 [mol/L]')
+    # plt.show()
 
-    plt.figure(figsize=(10,6))
-    plt.plot(t,concO2)
-    plt.legend()
-    plt.grid()
-    plt.xlabel('Time [hrs]')
-    plt.ylabel('O2 [mol/L]')
-    plt.show()
+    # plt.figure(figsize=(10,6))
+    # plt.plot(t,concO2g)
+    # plt.legend()
+    # plt.grid()
+    # plt.xlabel('Time [hrs]')
+    # plt.ylabel('Gas O2 [mol/L]')
+    # plt.show()
 
+    # plt.figure(figsize=(10,6))
+    # plt.plot(t,concCO2l)
+    # plt.legend()
+    # plt.grid()
+    # plt.xlabel('Time [hrs]')
+    # plt.ylabel('Liquid CO2 [mol/L]')
+    # plt.show()
 
-    plt.figure(figsize=(10,6))
-    plt.plot(t,concCO2)
-    plt.legend()
-    plt.grid()
-    plt.xlabel('Time [hrs]')
-    plt.ylabel('CO2 [mol/L]')
-    plt.show()
+    # plt.figure(figsize=(10,6))
+    # plt.plot(t,concCO2g)
+    # plt.legend()
+    # plt.grid()
+    # plt.xlabel('Time [hrs]')
+    # plt.ylabel('Gas CO2 [mol/L]')
+    # plt.show()
+
 
     #find constraint limits
-    indexCO2 = min(concCO2[concCO2<c.limits[2]*0.083].shape[0],concCO2.shape[0]-1)
-    indexO2 = min(concO2[concO2>0].shape[0],concO2.shape[0]-1)
+    indexCO2 = min(concCO2l[concCO2l<0.00348].shape[0],concCO2l.shape[0]-1)
+    indexO2 = min(concO2l[concO2l>0].shape[0],concO2l.shape[0]-1)
 
-    print(indexO2,indexCO2)
-
-    #report yield for each constraint limit
+    #report yield for each constraint limit and make dictionary to return
     limitCO2 = gDW[indexCO2]/c.dmf/b.v0
     limitO2 = gDW[indexO2]/c.dmf/b.v0
 
     limitsDict = {"CO2":limitCO2,"O2":limitO2}  
 
-    print(limitsDict)
-
     #constract dataframe with relevant constraints and parameters over time
-    dataframe = pd.DataFrame({'Time [hr]': t, 'CO2 [mol/L]': concCO2.flatten(), 'O2 [mol/L]': concO2.flatten()})
+    dataframe = pd.DataFrame({'Time [hr]': t, 'CO2 [mol/L]': concCO2l.flatten(), 'O2 [mol/L]': concO2l.flatten()})
 
     return (dataframe,limitsDict)
 
-#yield prediction evaluation function    
+# Yield prediction function using prior method    
 def yieldModel(b,c,duration,klaInO2,tauMIn,epsIn):
     """
     Production performance function to predict overall yield and yield limits by constraint type.
@@ -389,10 +427,8 @@ def yieldModel(b,c,duration,klaInO2,tauMIn,epsIn):
     -------
     dataframe : dataframe
         Time history of all performance and constraint values.
-    limitsDescriptList : list of strings
-        Names of constraints index linked to limitsList
-    limitsList : list of tuples
-        Time and cell wet mass yield limits for each constraint
+    limitsDict : dictionary
+        Yield limits by constraint
     """
     
     #array length
@@ -719,8 +755,6 @@ def brute(count,b,c,dbls,rpmlims,uslims,nslims,graphs):
                               'Maximum Yield [g/L wet]':[overallYield.max(),ammoniaYield.max(),lactateYield.max(),pCO2Yield.max(),klaYield.max(),\
                                 mixingYield.max(),lambdaKYield.max(),ustopYield.max()]})
     
-    #return ([overallYieldMAX.max(),lactateYieldMAX.max(),ammoniaYieldMAX.max(),pCO2YieldMAX.max(),\
-    #        klaYieldMAX.max(),mixingYieldMAX.max(),volFracYieldMAX.max(),lambdaKYieldMAX.max(),\
-    #        ustopYieldMAX.max(),volumeYieldMAX.max(),]) #make this a dataframe
-    return (dataframe)    
+    return (dataframe)
+    
 ###############
